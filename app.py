@@ -23,7 +23,7 @@ def welcome_page(username, password, database):
         st.warning("User details not found.")
 
 # Function to display the feedback page
-def feedback_page(username):
+def feedback_page(username, database):
     st.title("Feedback System")
 
     # Get user input
@@ -61,22 +61,26 @@ def main():
     password = st.text_input("Enter Customer ID (Password)", type="password")
 
     # Upload file through Streamlit
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"], key='csv_uploader')
 
     # Check if a file is uploaded
     if uploaded_file is not None:
-        database = pd.read_csv(uploaded_file)
+        # Use st.cache to load the CSV file only once
+        @st.cache_data
+        def load_database():
+            return pd.read_csv(uploaded_file)
+
+        st.session_state.database = load_database()
         st.success("CSV file uploaded successfully!")
-        st.session_state.database = database
 
     # Login button
-    if st.button("Login") and uploaded_file is not None:
+    if st.button("Login") and st.session_state.database is not None:
         if authenticate(username, password, st.session_state.database):
             st.session_state.authenticated = True
             st.session_state.username = username
             st.session_state.password = password
             welcome_page(username, password, st.session_state.database)
-            feedback_page(username)
+            feedback_page(username, st.session_state.database)
         else:
             st.error("Invalid Credentials. Please try again.")
 
