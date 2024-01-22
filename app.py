@@ -1,19 +1,15 @@
 import streamlit as st
 import pandas as pd
 
-# Load the database
-database_path = '/home/nikit/Downloads/Churn_ModellingEmail.csv'
-database = pd.read_csv(database_path)
-
 # Function to authenticate user
-def authenticate(username, password):
+def authenticate(username, password, database):
     for index, row in database.iterrows():
         if row['Email'] == username and row['CustomerId'] == int(password):
             return True
     return False
 
 # Function to display the welcome page
-def welcome_page(username, password):
+def welcome_page(username, password, database):
     st.write(f"Welcome, {username}!")
 
     # Check if there are records for the specified username and password
@@ -53,25 +49,27 @@ def feedback_page(username):
 def main():
     st.title("Login System with Streamlit")
 
-    # Initialize session state
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
-
     # Input fields for username and password
     username = st.text_input("Enter Email (Username)")
     password = st.text_input("Enter Customer ID (Password)", type="password")
 
-    # Login button
-    if st.button("Login"):
-        if authenticate(username, password):
-            st.session_state.authenticated = True
+    # Upload file through Streamlit
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-    # Check if the user is authenticated
-    if st.session_state.authenticated:
-        welcome_page(username, password)
-        feedback_page(username)
+    # Check if a file is uploaded
+    if uploaded_file is not None:
+        database = pd.read_csv(uploaded_file)
+        st.success("CSV file uploaded successfully!")
     else:
-        st.error("Invalid Credentials. Please try again.")
+        st.warning("Please upload a CSV file.")
+
+    # Login button
+    if st.button("Login") and uploaded_file is not None:
+        if authenticate(username, password, database):
+            welcome_page(username, password, database)
+            feedback_page(username)
+        else:
+            st.error("Invalid Credentials. Please try again.")
 
 if __name__ == "__main__":
     main()
