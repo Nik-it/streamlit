@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import mysql.connector
+import pymysql
 
 # Function to authenticate user
 def authenticate(username, password, database):
@@ -78,11 +78,11 @@ def main():
         'password': 'n00bNikit!',
         'database': 'id21808370_feedback'
     }
-
+    
     try:
-        database = mysql.connector.connect(**database_config)
+        database = pymysql.connect(**database_config)
         st.session_state.database = database
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         st.error(f"Error: {err}")
         st.stop()
 
