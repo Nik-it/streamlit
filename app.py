@@ -61,28 +61,27 @@ def main():
     password = st.text_input("Enter Customer ID (Password)", type="password")
 
     # Upload file through Streamlit
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"], key='csv_uploader')
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     # Check if a file is uploaded
     if uploaded_file is not None:
-        # Use st.cache to load the CSV file only once
-        @st.cache_data
-        def load_database():
-            return pd.read_csv(uploaded_file)
-
-        st.session_state.database = load_database()
+        database = pd.read_csv(uploaded_file)
         st.success("CSV file uploaded successfully!")
+        st.session_state.database = database
 
     # Login button
-    if st.button("Login") and st.session_state.database is not None:
+    if st.button("Login") and uploaded_file is not None:
         if authenticate(username, password, st.session_state.database):
             st.session_state.authenticated = True
             st.session_state.username = username
             st.session_state.password = password
             welcome_page(username, password, st.session_state.database)
-            feedback_page(username, st.session_state.database)
         else:
             st.error("Invalid Credentials. Please try again.")
+
+    # Check if the user is authenticated before displaying the feedback page
+    if st.session_state.authenticated:
+        feedback_page(username, st.session_state.database)
 
 if __name__ == "__main__":
     main()
