@@ -105,21 +105,31 @@ def main():
         st.session_state.password = ""
         st.session_state.database = None
 
+    # Check if the SQLite database exists
+    if st.session_state.database is None:
+        st.session_state.database_exists = False
+    else:
+        st.session_state.database_exists = True
+
     # Input fields for username and password
     username = st.text_input("Enter Email (Username)")
     password = st.text_input("Enter Customer ID (Password)", type="password")
 
-    # Upload file through Streamlit
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+    # Upload file through Streamlit if the database doesn't exist
+    if not st.session_state.database_exists:
+        uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-    # Check if a file is uploaded
-    if uploaded_file is not None:
-        database = pd.read_csv(uploaded_file)
-        st.success("CSV file uploaded successfully!")
-        st.session_state.database = database
+        # Check if a file is uploaded
+        if uploaded_file is not None:
+            database = pd.read_csv(uploaded_file)
+            st.success("CSV file uploaded successfully!")
+            st.session_state.database = database
+            st.session_state.database_exists = True
+    else:
+        database = st.session_state.database
 
     # Login button
-    if st.button("Login") and uploaded_file is not None:
+    if st.button("Login") and st.session_state.database_exists:
         if authenticate(username, password, st.session_state.database):
             st.session_state.authenticated = True
             st.session_state.username = username
