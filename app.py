@@ -1,27 +1,24 @@
 import streamlit as st
 import pandas as pd
-import pymysql
+import sqlite3
 
 # Function to authenticate user
 def authenticate(username, password, database):
-    cursor = database.cursor(dictionary=True)
-    query = "SELECT * FROM users WHERE Email = %s AND CustomerId = %s"
-    cursor.execute(query, (username, int(password)))
-    result = cursor.fetchone()
-    return result is not None
+    for index, row in database.iterrows():
+        if row['Email'] == username and row['CustomerId'] == int(password):
+            return True
+    return False
 
 # Function to display the welcome page
 def welcome_page(username, password, database):
-    cursor = database.cursor(dictionary=True)
-    query = "SELECT * FROM users WHERE Email = %s AND CustomerId = %s"
-    cursor.execute(query, (username, int(password)))
-    user_data = cursor.fetchone()
-
     st.write(f"Welcome, {username}!")
 
-    if user_data:
+    # Check if there are records for the specified username and password
+    user_data = database[(database['Email'] == username) & (database['CustomerId'] == int(password))]
+    if not user_data.empty:
+        user_details = user_data.iloc[0].to_dict()
         st.write("User Details:")
-        for key, value in user_data.items():
+        for key, value in user_details.items():
             st.write(f"- {key}: {value}")
     else:
         st.warning("User details not found.")
@@ -43,61 +40,86 @@ def feedback_page(username, database):
             st.warning("Please fill out all fields.")
         else:
             # Save feedback to the database
-            save_feedback(username, subject, message, database)
+            save_feedback(username, subject, message)
 
             # Display confirmation message
             st.success("Feedback submitted successfully!")
 
-def save_feedback(username, subject, message, database):
-    cursor = database.cursor()
-    query = "INSERT INTO feedbacks (Email, Subject, Message) VALUES (%s, %s, %s)"
-    cursor.execute(query, (username, subject, message))
-    database.commit()
+# Function to save feedback to the database
+def save_feedback(username, subject, message):
+    # Connect to SQLite database (create one if not exists)
+    conn = sqlite3.connect('feedbacks.db')
 
-def show_all_feedbacks(database):
+    # Create a cursor object to execute SQL queries
+    cursor = conn.cursor()
+
+    # Create a table if not exists
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS feedbacks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            subject TEXT,
+            message TEXT
+        )
+    ''')
+
+    # Insert feedback into the table
+    cursor.execute('''
+        INSERT INTO feedbacks (username, subject, message) VALUES (?, ?, ?)
+    ''', (username, subject, message))
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+# Function to show all feedbacks
+def show_all_feedbacks():
     st.title("All Feedbacks")
 
-    # Retrieve all feedbacks from the database
-    cursor = database.cursor(dictionary=True)
-    query = "SELECT * FROM feedbacks"
-    cursor.execute(query)
-    all_feedbacks = cursor.fetchall()
+    # Connect to SQLite database
+    conn = sqlite3.connect('feedbacks.db')
 
-    # Display all feedbacks
-    for feedback in all_feedbacks:
-        st.write(f"Username: {feedback['Email']}, Subject: {feedback['Subject']}, Message: {feedback['Message']}")
-        st.markdown("---")
+    # Query all feedbacks from the database
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM feedbacks')
+    feedbacks = cursor.fetchall()
+
+    # Display the feedbacks in a table
+    if feedbacks:
+        columns = ['ID', 'Username', 'Subject', 'Message']
+        feedback_df = pd.DataFrame(feedbacks, columns=columns)
+        st.table(feedback_df)
+    else:
+        st.warning("No feedbacks available.")
+
+    # Close the connection
+    conn.close()
 
 def main():
     st.title("Login System with Streamlit")
-
-    # Connect to MySQL database
-    database_config = {
-        'host': 'localhost',
-        'user': 'id21808370_nikitmht',
-        'password': 'n00bNikit!',
-        'database': 'id21808370_feedback'
-    }
-    
-    try:
-        database = pymysql.connect(**database_config)
-        st.session_state.database = database
-    except pymysql.Error as err:
-        st.error(f"Error: {err}")
-        st.stop()
 
     # Initialize session state
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.username = ""
         st.session_state.password = ""
+        st.session_state.database = None
 
     # Input fields for username and password
     username = st.text_input("Enter Email (Username)")
     password = st.text_input("Enter Customer ID (Password)", type="password")
 
+    # Upload file through Streamlit
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+    # Check if a file is uploaded
+    if uploaded_file is not None:
+        database = pd.read_csv(uploaded_file)
+        st.success("CSV file uploaded successfully!")
+        st.session_state.database = database
+
     # Login button
-    if st.button("Login"):
+    if st.button("Login") and uploaded_file is not None:
         if authenticate(username, password, st.session_state.database):
             st.session_state.authenticated = True
             st.session_state.username = username
@@ -112,7 +134,7 @@ def main():
 
     # Show All Feedbacks button
     if st.button("Show All Feedbacks"):
-        show_all_feedbacks(st.session_state.database)
+        show_all_feedbacks()
 
 if __name__ == "__main__":
     main()
