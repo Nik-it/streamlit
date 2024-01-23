@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import sqlite3
 
 # Function to authenticate user
 def authenticate(username, password, database):
@@ -38,13 +39,37 @@ def feedback_page(username, database):
         if not subject or not message:
             st.warning("Please fill out all fields.")
         else:
-            # Save or process the feedback (in this example, just print it)
-            print(f"Subject: {subject}")
-            print(f"Message: {message}")
-            print(f"Email: {username}")  # Using the username from the login
+            # Save feedback to the database
+            save_feedback(username, subject, message)
 
             # Display confirmation message
             st.success("Feedback submitted successfully!")
+
+def save_feedback(username, subject, message):
+    # Connect to SQLite database (create one if not exists)
+    conn = sqlite3.connect('feedbacks.db')
+
+    # Create a cursor object to execute SQL queries
+    cursor = conn.cursor()
+
+    # Create a table if not exists
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS feedbacks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            subject TEXT,
+            message TEXT
+        )
+    ''')
+
+    # Insert feedback into the table
+    cursor.execute('''
+        INSERT INTO feedbacks (username, subject, message) VALUES (?, ?, ?)
+    ''', (username, subject, message))
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
 
 def main():
     st.title("Login System with Streamlit")
